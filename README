@@ -1,0 +1,11 @@
+BlogPool
+
+    Human posts a blog entry
+    Blog pings one or more BlogPool services
+    BlogPool services respond with feedback as public comments or private message
+        Discarded responses indicate negative feedback to the service
+        Published responses indicate positive feedback
+    A variety of services and multi-services; ranging from simple to complex
+    Most “helpful” services self-advertise
+
+http://automenta.com/blogpool
