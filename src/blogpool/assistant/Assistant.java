@@ -2,13 +2,15 @@
  * To change this template, choose Tools | Templates
  * and open the template in the editor.
  */
-package blogpool;
+package blogpool.assistant;
+
+import blogpool.Content;
 
 /**
  *
  * @author seh
  */
-public interface Agent {
+public interface Assistant {
  
     public void read(Content c);
     public boolean hasRead(Content c);
