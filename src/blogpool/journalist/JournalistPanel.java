@@ -4,9 +4,11 @@
  */
 package blogpool.journalist;
 
+import blogpool.source.WordpressSource;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.FlowLayout;
+import java.awt.Font;
 import java.awt.Frame;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -19,6 +21,7 @@ import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
+import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JMenu;
@@ -30,7 +33,10 @@ import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
+import javax.swing.SwingConstants;
+import javax.swing.border.Border;
 import javax.swing.border.EmptyBorder;
+import redstone.xmlrpc.XmlRpcFault;
 
 /**
  *
@@ -43,7 +49,13 @@ public class JournalistPanel extends JPanel {
     private final SourcesPanel sourcesPanel;
     private final PostEditorPanel postEditor;
     private final History history;
+    private final WordpressSource blog;
 
+    public static void doubleSize(JComponent c) {
+        Font f = c.getFont();
+        c.setFont(f.deriveFont((float)f.getSize()*2.0f));
+    }
+    
     public class PostEditorPanel extends JPanel {
 
         List<Content> elements = new LinkedList();
@@ -60,6 +72,7 @@ public class JournalistPanel extends JPanel {
             JPanel topPanel = new JPanel(new BorderLayout());
             {
                 titleField = new JTextField("");
+                doubleSize(titleField);
                 topPanel.add(titleField, BorderLayout.NORTH);
             }
             add(topPanel, BorderLayout.NORTH);
@@ -70,6 +83,17 @@ public class JournalistPanel extends JPanel {
                 bottomPanel.add(preview);
 
                 JButton post = new JButton("Post");
+                post.addActionListener(new ActionListener() {
+                    @Override
+                    public void actionPerformed(ActionEvent e) {
+                        try {
+                            blog.newPost(getTitle(), getBody() /*, getTags()*/);
+                            clear();
+                        } catch (XmlRpcFault ex) {
+                            logger.severe(ex.toString());
+                        }
+                    }                    
+                });
                 bottomPanel.add(post);
             }
             add(bottomPanel, BorderLayout.SOUTH);
@@ -79,6 +103,14 @@ public class JournalistPanel extends JPanel {
 
         public String getTitle() { return titleField.getText(); }
         public void setTitle(String t) { titleField.setText(t); }
+        
+        public String getBody() {
+            StringBuilder sb = new StringBuilder();
+            for (Content c : elements) {
+                sb.append(c.toHTML());
+            }
+            return sb.toString();
+        }
         
         protected void edit(final Content c) {
             final JDialog d = new JDialog((Frame)null, true);
@@ -192,6 +224,7 @@ public class JournalistPanel extends JPanel {
 
         public void clear() {
             elements.clear();
+            titleField.setText("");
             refresh();
         }
 
@@ -201,6 +234,11 @@ public class JournalistPanel extends JPanel {
         }
     }
 
+    public String noLongerThan(String s, int numChars) {
+        if (s.length() < numChars) return s;
+        return s.substring(0,numChars-2) + "..";
+    }
+    
     protected void refresh() {
         sourcesPanel.sourceContents.empty();
         new Thread(new Journalist.RefreshSources(history, new Runnable() {
@@ -234,12 +272,25 @@ public class JournalistPanel extends JPanel {
             for (final ContentSource cs : history.content.values()) {
 
                 final JPanel jp = new JPanel(new BorderLayout());
-                float h = (cs.getTitle().hashCode() % 5000.0F) / 5000.0F;
+                //float h = (cs.getTitle().hashCode() % 5000.0F) / 5000.0F;
+                float h = ((float)Math.sin(cs.getTitle().hashCode()/2.0f))+1.0f * 0.05f + 0.1f;
                 jp.setBackground(Color.getHSBColor(h, 0.1F, 0.95F));
                 jp.setBorder(new EmptyBorder(5, 5, 5, 5));
 
+                final JPanel c = new JPanel();
+                c.setVisible(false);
+
+                final JPanel topPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+                topPanel.setOpaque(false);
                 {
-                    final JPanel topPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+                    
+                    final JButton expandButton = new JButton("->");
+                    expandButton.addActionListener(new ActionListener() {
+                        @Override
+                        public void actionPerformed(ActionEvent e) {
+                            c.setVisible(!c.isVisible());
+                        }                        
+                    });
                     
                     JButton allButton = new JButton(cs.getTitle());
                     allButton.setToolTipText("Add all contained content");
@@ -274,16 +325,19 @@ public class JournalistPanel extends JPanel {
                             jp.setVisible(false);
                         }
                     });
+                    topPanel.add(expandButton);
                     topPanel.add(allButton);
                     topPanel.add(discardButton, BorderLayout.SOUTH);
                 }
+                
                 //for each piece of content...
-                JPanel c = new JPanel();
                 {
                     c.setBorder(new EmptyBorder(5, 18, 18, 5));
                     c.setLayout(new BoxLayout(c, BoxLayout.Y_AXIS));
                     for (final Content x : cs.content) {
                         JButton b = new JButton(x.getClass().getSimpleName());
+                        b.setHorizontalTextPosition(SwingConstants.LEFT);                        
+                        
                         b.setToolTipText("<html>" + x.getSource() + "</html>");
                         b.addActionListener(new ActionListener() {
 
@@ -292,14 +346,21 @@ public class JournalistPanel extends JPanel {
                                 addContent(cs, x);
                             }
                         });
+                        if (x instanceof Content.Text) {
+                            String t = x.getSource();
+                            b.setText("<html>Text (" + t.length() + " chars)<br/>" + noLongerThan(t, 80) + "</html>");
+                        }
                         if (x instanceof Content.Image) {
                             String u = ((Content.Image)x).url;
+                            
                             ImageIcon ii = history.getImage(u);
-                            if ((ii.getIconWidth() < 2) || (ii.getIconHeight() < 2)) {
-                                b.setVisible(false);
-                            }
-                            else {
-                                b.setIcon(ii);
+                            if (ii!=null) {
+                                if ((ii.getIconWidth() < 2) || (ii.getIconHeight() < 2)) {
+                                    b.setVisible(false);
+                                }
+                                else {
+                                    b.setIcon(ii);
+                                }
                             }
                         }
                         c.add(b);
@@ -378,13 +439,19 @@ public class JournalistPanel extends JPanel {
         }
     }
 
-    public JournalistPanel(History history) {
+    public JournalistPanel(History history, WordpressSource blog) {
         super(new BorderLayout());
 
+        this.blog = blog;
         this.history = history;
 
+        Border b = new EmptyBorder(5,5,5,5);
+        
         postEditor = new PostEditorPanel(history);
+        postEditor.setBorder(b);
         sourcesPanel = new SourcesPanel(history, postEditor);
+        sourcesPanel.setBorder(b);
+        
         JSplitPane js = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
         add(js, BorderLayout.CENTER);
         js.setLeftComponent(sourcesPanel);

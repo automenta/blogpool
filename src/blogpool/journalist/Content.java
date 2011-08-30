@@ -20,6 +20,8 @@ public abstract class Content implements Serializable {
         private String text;
         private String wrapper;
         
+        public Text() {       }
+        
         public Text(String text) {
             this(text, null);            
         }
@@ -61,7 +63,7 @@ public abstract class Content implements Serializable {
 
         @Override
         public String toHTML() {
-            return (wrapper == null) ? text : "<" + wrapper + ">" + text + "</" + wrapper + ">";
+            return (wrapper == null) ? text : "<" + wrapper + ">" + text + "</" + wrapper + "><br/>";
         }
         
         
@@ -71,6 +73,8 @@ public abstract class Content implements Serializable {
     
         public String url;
 
+        public Image() {       }
+        
         public Image(String url) {
             this.url = url;
         }
@@ -95,6 +99,8 @@ public abstract class Content implements Serializable {
     
     public static class YoutubeVideo extends Content {
         public String video;
+
+        public YoutubeVideo() {       }
 
         public YoutubeVideo(String video) {
             this.video = video;

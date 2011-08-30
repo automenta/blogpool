@@ -133,5 +133,12 @@ public class WordpressSource extends Source {
     public void newComment(int postID, String content, int commentID) throws XmlRpcFault {
         wordpress.newComment(postID, commentID, content, null, null, null);
     }
+
+    public void newPost(String title, String body) throws XmlRpcFault {
+        Page p = new Page();
+        p.setTitle(title);
+        p.setDescription(body);
+        wordpress.newPost(p, true);
+    }
     
 }

@@ -16,8 +16,12 @@ import java.util.List;
 public abstract class ContentSource implements Serializable {
  
     public final List<Content> content = new LinkedList();
-    public final String url;
+    public String url;
     private Date lastUpdated;
+
+    public ContentSource() {
+        
+    }
 
     public ContentSource(String url, Date lastUpdated) {
         this.url = url;

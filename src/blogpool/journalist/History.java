@@ -4,12 +4,13 @@
  */
 package blogpool.journalist;
 
-import blogpool.journalist.Content.Image;
-import blogpool.journalist.Content.Text;
+import flexjson.JSONSerializer;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.io.Serializable;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -23,10 +24,6 @@ import org.horrabin.horrorss.RssChannelBean;
 import org.horrabin.horrorss.RssImageBean;
 import org.horrabin.horrorss.RssItemBean;
 import org.horrabin.horrorss.RssParser;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
-import org.jsoup.select.Elements;
 
 /**
  *
@@ -34,48 +31,10 @@ import org.jsoup.select.Elements;
  */
 public class History implements Serializable {
 
-    private static class RSSContentSource extends ContentSource {
-        private final String title;
-
-        int timeoutMS = 1500;
-        
-        public RSSContentSource(String contentURL, RssItemBean item) {
-            super(contentURL, new Date());
-            content.add(new Text(item.getDescription()));
-            
-            this.title = item.getTitle();
-                        
-            try {
-                Document doc = Jsoup.parse(new URL(item.getLink()), timeoutMS);
-                
-                System.out.println(doc.text());
-                content.add(new Text(doc.text()));               
-                
-                Elements images = doc.select("img");
-                for (int i = 0; i < images.size(); i++) {
-                    Element img = images.get(i);
-                    content.add(new Image(img.attr("src")));
-                }
-            } catch (Exception ex) {
-                Logger.getLogger(History.class.getName()).log(Level.SEVERE, null, ex);
-            }
-//                System.out.println("Title: " + item.getTitle());
-//                System.out.println("Link : " + item.getLink());
-//                System.out.println("Desc.: " + item.getDescription());
-        }
-
-        @Override
-        public String getTitle() {
-            return title;
-        }
-        
-    }
-
     public final Set<String> rssFeeds = new HashSet();
     public final Map<String, ContentSource> content = new HashMap();
     transient public final Map<String, ImageIcon> imageCache = new ConcurrentHashMap();
-    
-    
+        
     public History() {
         rssFeeds.add("http://finance.yahoo.com/rss/topstories");
     }
@@ -98,7 +57,8 @@ public class History implements Serializable {
                 RssItemBean item = (RssItemBean) items.elementAt(i);
                 
                 String contentURL = item.getLink();
-                content.put(contentURL, new RSSContentSource(contentURL, item));               
+                if (!content.containsKey(contentURL))
+                    content.put(contentURL, new RSSContentSource(contentURL, item));               
             }
 
         } catch (Exception e) {
@@ -119,6 +79,15 @@ public class History implements Serializable {
             Logger.getLogger(History.class.getName()).log(Level.SEVERE, null, ex);
         }
         return null;
+    }
+
+    void save(String historyFile) throws IOException {
+        String s = new JSONSerializer().deepSerialize(this);
+        
+        FileWriter fw = new FileWriter(new File(historyFile));
+        fw.append(s);
+        fw.close();
+
     }
             
     
